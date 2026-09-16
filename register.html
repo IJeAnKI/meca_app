@@ -54,13 +54,18 @@
 
         <form id="standaloneRegisterForm">
           <div class="form-group">
-            <label for="regNombre">Nombre Completo</label>
+            <label for="regNombre">Nombre</label>
             <input
               type="text"
               id="regNombre"
               required
               placeholder="Ej. Jean Carlo"
             />
+          </div>
+
+          <div class="form-group">
+            <label for="regApellido">Apellido</label>
+            <input type="text" id="regApellido" required placeholder="Ej. Pérez" />
           </div>
 
           <div class="form-group">
@@ -86,8 +91,8 @@
           <div class="form-group">
             <label for="regRol">¿Cuál será tu rol principal?</label>
             <select id="regRol" required>
-              <option value="estudiante">Estudiante en busca de ayuda</option>
-              <option value="tutor">Aspirante a Tutor / Mentor</option>
+              <option value="ASESORADO">Estudiante en busca de ayuda</option>
+              <option value="TUTOR">Aspirante a Tutor / Mentor</option>
             </select>
           </div>
 
@@ -97,6 +102,7 @@
               type="password"
               id="regPassword"
               required
+              minlength="8"
               placeholder="••••••••"
             />
           </div>
@@ -108,6 +114,7 @@
           >
             Completar Registro
           </button>
+          <p id="registerStatus" role="status" style="margin-top: 1rem; text-align: center;"></p>
         </form>
 
         <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem">
