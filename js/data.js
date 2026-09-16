@@ -1,0 +1,43 @@
+// js/data.js - Mock Data para el catálogo de tutores de M.E.C.A.
+const tutoresData = [
+  {
+    id: 1,
+    nombre: "Jean Carlo Champutis",
+    institucion: "Universidad CESMAG",
+    materia: "Cálculo Diferencial",
+    precioHora: 15000,
+    calificacion: 4.9,
+    disponibilidad: ["Lunes 14:00 - 16:00", "Miércoles 10:00 - 12:00"],
+    foto: "https://via.placeholder.com/100/1E3A8A/FFFFFF?text=JC",
+  },
+  {
+    id: 2,
+    nombre: "Santiago Barrera",
+    institucion: "Universidad CESMAG",
+    materia: "Programación Web",
+    precioHora: 20000,
+    calificacion: 5.0,
+    disponibilidad: ["Martes 15:00 - 18:00", "Viernes 08:00 - 11:00"],
+    foto: "https://via.placeholder.com/100/1E3A8A/FFFFFF?text=SB",
+  },
+  {
+    id: 3,
+    nombre: "Michael Rodriguez",
+    institucion: "Universidad CESMAG",
+    materia: "Física Mecánica",
+    precioHora: 15000,
+    calificacion: 4.7,
+    disponibilidad: ["Jueves 14:00 - 17:00"],
+    foto: "https://via.placeholder.com/100/1E3A8A/FFFFFF?text=MR",
+  },
+  {
+    id: 4,
+    nombre: "Santiago Pazmiño",
+    institucion: "Universidad CESMAG",
+    materia: "Estadística Descriptiva",
+    precioHora: 18000,
+    calificacion: 4.8,
+    disponibilidad: ["Lunes 08:00 - 10:00", "Viernes 14:00 - 16:00"],
+    foto: "https://via.placeholder.com/100/1E3A8A/FFFFFF?text=SP",
+  },
+];

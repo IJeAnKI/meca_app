@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M.E.C.A. - Catálogo y Reserva de Tutorías</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body style="display: flex; flex-direction: column; min-height: 100vh;">
+
+  <!-- Navegación Principal -->
+  <header>
+    <nav class="navbar">
+      <a href="index.html" class="logo">M.E.C.A.</a>
+      <ul class="nav-links">
+        <li><a href="index.html">Inicio</a></li>
+        <li><a href="reservas.html" style="color: var(--azul-meca); font-weight: 700;">Catálogo de Tutores</a></li>
+        <li><a href="login.html" class="btn-secondary">Iniciar Sesión</a></li>
+        <li><a href="register.html" class="btn-primary">Registrarse</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Contenedor Principal del Catálogo -->
+  <main class="section-container" style="flex: 1; margin-top: 2rem;">
+    <h1 style="color: var(--azul-meca); text-align: center; margin-bottom: 0.5rem;">Catálogo de Mentores Estudiantiles</h1>
+    <p style="text-align: center; color: var(--texto-secundario); margin-bottom: 2.5rem;">
+      Filtra por asignatura o tarifa para encontrar al tutor ideal entre tus compañeros.
+    </p>
+
+    <!-- Panel de Filtros Dinámicos -->
+    <div class="card" style="margin-bottom: 2.5rem; display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center;">
+      <div style="flex: 2; min-width: 250px;">
+        <label for="searchMateria" style="font-weight: 600; display: block; margin-bottom: 0.4rem; color: var(--texto-principal);">
+          Buscar por Asignatura:
+        </label>
+        <input 
+          type="text" 
+          id="searchMateria" 
+          placeholder="Ej. Cálculo, Programación, Física..." 
+          oninput="filtrarTutores()" 
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--borde-suave); border-radius: 6px; font-size: 0.95rem;"
+        >
+      </div>
+
+      <div style="flex: 1; min-width: 200px;">
+        <label for="filterPrecio" style="font-weight: 600; display: block; margin-bottom: 0.4rem; color: var(--texto-principal);">
+          Tarifa Máxima / Hora:
+        </label>
+        <select 
+          id="filterPrecio" 
+          onchange="filtrarTutores()" 
+          style="width: 100%; padding: 0.7rem; border: 1px solid var(--borde-suave); border-radius: 6px; font-size: 0.95rem;"
+        >
+          <option value="todos">Todas las tarifas</option>
+          <option value="15000">Hasta $15.000 COP</option>
+          <option value="18000">Hasta $18.000 COP</option>
+          <option value="20000">Hasta $20.000 COP</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Grid donde JavaScript renderizará las Tarjetas de Tutores -->
+    <div id="contenedorTutores" class="grid-3">
+      <!-- Se carga dinámicamente mediante js/app.js y js/data.js -->
+    </div>
+  </main>
+
+  <!-- Footer con Información General -->
+  <footer>
+    <div class="footer-content">
+      <div>
+        <h3>M.E.C.A.</h3>
+        <p style="margin-top: 0.5rem; color: var(--borde-suave);">Mentoría entre estudiantes de Colombia para su aprendizaje.</p>
+      </div>
+      <div>
+        <h4>Soporte y Contacto</h4>
+        <p style="color: var(--borde-suave);">Correo: soporte@meca.edu.co</p>
+        <p style="color: var(--borde-suave);">Ubicación: Pasto, Colombia</p>
+      </div>
+      <div>
+        <h4>Enlaces Rápidos</h4>
+        <a href="index.html">Inicio</a>
+        <a href="login.html">Iniciar Sesión</a>
+        <a href="register.html">Registro</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 M.E.C.A. - Desarrollado para la materia de Ingeniería de Calidad de Software.</p>
+    </div>
+  </footer>
+
+  <!-- Carga de Scripts JS Nativo -->
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

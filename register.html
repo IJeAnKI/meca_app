@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M.E.C.A. - Crear Cuenta</title>
+    <link rel="stylesheet" href="css/styles.css" />
+  </head>
+  <body style="display: flex; flex-direction: column; min-height: 100vh">
+    <!-- Header -->
+    <header>
+      <nav class="navbar">
+        <a href="index.html" class="logo">M.E.C.A.</a>
+        <ul class="nav-links">
+          <li><a href="index.html">Inicio</a></li>
+          <li><a href="login.html">Iniciar Sesión</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <!-- Contenedor Principal de Registro -->
+    <main
+      style="
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+      "
+    >
+      <div
+        class="card"
+        style="width: 100%; max-width: 480px; box-shadow: var(--sombra)"
+      >
+        <h2
+          style="
+            color: var(--azul-meca);
+            text-align: center;
+            margin-bottom: 0.5rem;
+          "
+        >
+          Crea tu cuenta en M.E.C.A.
+        </h2>
+        <p
+          style="
+            text-align: center;
+            color: var(--texto-secundario);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+          "
+        >
+          Únete a la red de mentoría estudiantil de Colombia.
+        </p>
+
+        <form id="standaloneRegisterForm">
+          <div class="form-group">
+            <label for="regNombre">Nombre Completo</label>
+            <input
+              type="text"
+              id="regNombre"
+              required
+              placeholder="Ej. Jean Carlo"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="regEmail">Correo Electrónico</label>
+            <input
+              type="email"
+              id="regEmail"
+              required
+              placeholder="estudiante@cesmag.edu.co"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="regInstitucion">Institución Educativa</label>
+            <input
+              type="text"
+              id="regInstitucion"
+              required
+              placeholder="Universidad o Colegio"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="regRol">¿Cuál será tu rol principal?</label>
+            <select id="regRol" required>
+              <option value="estudiante">Estudiante en busca de ayuda</option>
+              <option value="tutor">Aspirante a Tutor / Mentor</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="regPassword">Contraseña</label>
+            <input
+              type="password"
+              id="regPassword"
+              required
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="btn-primary"
+            style="width: 100%; margin-top: 1rem"
+          >
+            Completar Registro
+          </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem">
+          <p>
+            ¿Ya tienes una cuenta?
+            <a
+              href="login.html"
+              style="
+                color: var(--azul-meca);
+                font-weight: 600;
+                text-decoration: none;
+              "
+              >Inicia sesión aquí</a
+            >
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-bottom" style="border: none; padding-top: 0">
+        <p>&copy; 2026 M.E.C.A. - Todos los derechos reservados.</p>
+      </div>
+    </footer>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
