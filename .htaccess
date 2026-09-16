@@ -1,0 +1,4 @@
+# Defensa adicional para XAMPP/Apache cuando AllowOverride está habilitado.
+<FilesMatch "^\.env">
+    Require all denied
+</FilesMatch>
