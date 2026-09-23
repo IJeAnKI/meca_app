@@ -1,5 +1,4 @@
-// js/app.js - Lógica adaptativa para Local (PHP) y Nube (Supabase)
-
+// js/app.js - Lógica adaptativa completa
 const API_TUTORES_LOCAL = "api/tutores/listar.php";
 const API_AUTH_LOCAL = "api/auth";
 let temporizadorFiltro;
@@ -18,10 +17,22 @@ function mostrarMensaje(id, mensaje, esError = false) {
   elemento.style.color = esError ? "#b91c1c" : "var(--verde-exito)";
 }
 
-// Envío unificado: Detecta si debe usar PHP o Supabase REST
+function mostrarEstado(mensaje) {
+  const contenedor = document.getElementById("contenedorTutores");
+  if (!contenedor) return;
+  contenedor.innerHTML = "";
+  const estado = document.createElement("div");
+  estado.style.cssText = "grid-column: 1/-1; text-align: center; padding: 2rem;";
+  const texto = document.createElement("p");
+  texto.style.cssText = "color: var(--texto-secundario); font-size: 1.1rem;";
+  texto.textContent = mensaje;
+  estado.appendChild(texto);
+  contenedor.appendChild(estado);
+}
+
+// Envío unificado Auth (PHP / Supabase)
 async function enviarPeticionAuth(endpointPhp, endpointSupabase, datos) {
   if (CONFIG.ES_NUBE) {
-    // PETICIÓN DIRECTA A SUPABASE REST (Sin PHP)
     const url = `${CONFIG.SUPABASE_URL}/rest/v1/${endpointSupabase}`;
     const respuesta = await fetch(url, {
       method: "POST",
@@ -35,15 +46,12 @@ async function enviarPeticionAuth(endpointPhp, endpointSupabase, datos) {
     });
 
     const cuerpo = await respuesta.json();
-    if (!respuesta.ok) {
-      throw new Error(cuerpo.message || "Error al procesar la solicitud en la nube.");
-    }
+    if (!respuesta.ok) throw new Error(cuerpo.message || "Error al procesar en la nube.");
     return { success: true, message: "Operación exitosa en Supabase." };
   } else {
-    // PETICIÓN AL BACKEND LOCAL (PHP)
     const respuesta = await fetch(endpointPhp, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
       credentials: "same-origin",
       body: JSON.stringify(datos)
     });
@@ -64,8 +72,7 @@ function configurarLogin() {
       const password = document.getElementById("loginPassword").value;
 
       if (CONFIG.ES_NUBE) {
-        // En la nube simula o verifica contra la tabla de usuarios
-        alert(`Sesión iniciada con éxito (${email}) desde la API de la nube.`);
+        alert(`Sesión iniciada con éxito (${email}) desde Supabase.`);
         window.location.href = "index.html";
       } else {
         const resultado = await enviarPeticionAuth(`${API_AUTH_LOCAL}/iniciar_sesion.php`, "", { email, password });
@@ -91,14 +98,10 @@ function configurarRegistro() {
         email: document.getElementById("regEmail").value,
         institucion: document.getElementById("regInstitucion").value,
         rol: document.getElementById("regRol").value,
-        password_hash: document.getElementById("regPassword").value // En prod requiere hash
+        password_hash: document.getElementById("regPassword").value
       };
 
-      const resultado = await enviarPeticionAuth(
-        `${API_AUTH_LOCAL}/registrar.php`,
-        "usuario",
-        payload
-      );
+      await enviarPeticionAuth(`${API_AUTH_LOCAL}/registrar.php`, "usuario", payload);
       mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
       setTimeout(() => window.location.href = "index.html", 1500);
     } catch (error) {
@@ -106,8 +109,6 @@ function configurarRegistro() {
     }
   });
 }
-
-// js/app.js - Carga y filtrado interactivo optimizado para Supabase
 
 async function cargarTutores() {
   const inputMateria = document.getElementById("searchMateria");
@@ -131,7 +132,6 @@ async function cargarTutores() {
     let tutores = [];
 
     if (CONFIG.ES_NUBE) {
-      // Consulta directa a Supabase REST
       const url = `${CONFIG.SUPABASE_URL}/rest/v1/vista_catalogo_tutores?select=*`;
       const respuesta = await fetch(url, {
         headers: {
@@ -161,7 +161,6 @@ async function cargarTutores() {
       return;
     }
 
-    // Fallback si la lista viene vacía
     if (typeof tutoresData !== "undefined") {
       renderizarTutores(tutoresDeMuestraFiltrados());
     } else {
@@ -180,24 +179,44 @@ async function cargarTutores() {
   }
 }
 
-// Filtra la lista de tutores de Supabase directamente en el navegador
 function aplicarFiltrosEnCliente(lista) {
   const terminoMateria = document.getElementById("searchMateria").value.trim().toLowerCase();
   const precioMax = document.getElementById("filterPrecio").value;
 
   return lista.filter((tutor) => {
-    // Normalizar lista de materias (pueden venir como array de objetos desde la vista SQL)
     const nombresMaterias = (tutor.materias || []).map(m => 
       typeof m === "object" ? (m.nombre_materia || "") : m
     ).join(" ").toLowerCase();
 
     const coincideMateria = !terminoMateria || nombresMaterias.includes(terminoMateria);
-    
     const precio = Number(tutor.precio_hora || tutor.precioHora || 0);
     const coincidePrecio = precioMax === "todos" || precio <= Number(precioMax);
 
     return coincideMateria && coincidePrecio;
   });
+}
+
+function tutoresDeMuestraFiltrados() {
+  const materia = document.getElementById("searchMateria").value.trim().toLocaleLowerCase("es");
+  const precioMaximo = document.getElementById("filterPrecio").value;
+  return tutoresData
+    .filter((tutor) => {
+      const coincideMateria = !materia || tutor.materia.toLocaleLowerCase("es").includes(materia);
+      const coincidePrecio = precioMaximo === "todos" || tutor.precioHora <= Number(precioMaximo);
+      return coincideMateria && coincidePrecio;
+    })
+    .map((tutor) => {
+      const [nombre, ...apellidos] = tutor.nombre.trim().split(/\s+/);
+      return {
+        id_tutor: tutor.id,
+        nombre,
+        apellido: apellidos.join(" "),
+        institucion: tutor.institucion,
+        materias: [tutor.materia],
+        precio_hora: tutor.precioHora,
+        promedio_calificacion: tutor.calificacion,
+      };
+    });
 }
 
 function renderizarTutores(lista) {
@@ -222,7 +241,6 @@ function renderizarTutores(lista) {
       card.appendChild(institucion);
     }
 
-    // Extraer nombres de materias formateados
     const materiasTexto = (tutor.materias || [])
       .map(m => typeof m === "object" ? m.nombre_materia : m)
       .filter(Boolean)
@@ -255,4 +273,14 @@ function renderizarTutores(lista) {
 
     contenedor.appendChild(card);
   });
+}
+
+function filtrarTutores() {
+  clearTimeout(temporizadorFiltro);
+  temporizadorFiltro = setTimeout(cargarTutores, 300);
+}
+
+function prepararReserva(tutor) {
+  const nombreTutor = tutor.nombre || "el tutor";
+  alert(`Para reservar con ${nombreTutor}, inicia sesión como estudiante en busca de ayuda.`);
 }
