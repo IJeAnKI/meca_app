@@ -114,7 +114,6 @@ async function cargarTutores() {
   const selectPrecio = document.getElementById("filterPrecio");
   if (!inputMateria || !selectPrecio) return;
 
-  // Registrar eventos de búsqueda si aún no están configurados
   if (!inputMateria.dataset.eventBound) {
     inputMateria.addEventListener("input", filtrarTutores);
     inputMateria.dataset.eventBound = "true";
@@ -132,7 +131,7 @@ async function cargarTutores() {
     let tutores = [];
 
     if (CONFIG.ES_NUBE) {
-      // 1. Petición a Supabase
+      // Consulta directa a Supabase REST
       const url = `${CONFIG.SUPABASE_URL}/rest/v1/vista_catalogo_tutores?select=*`;
       const respuesta = await fetch(url, {
         headers: {
@@ -145,7 +144,6 @@ async function cargarTutores() {
       if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
       tutores = await respuesta.json();
     } else {
-      // 2. Petición al Backend Local (PHP)
       const parametros = new URLSearchParams();
       if (inputMateria.value.trim()) parametros.set("materia", inputMateria.value.trim());
       if (selectPrecio.value !== "todos") parametros.set("precio_max", selectPrecio.value);
@@ -157,14 +155,13 @@ async function cargarTutores() {
       tutores = cuerpo.data || [];
     }
 
-    // Si la API devuelve un arreglo válido, aplicamos el filtro en cliente para respuesta instantánea
     if (Array.isArray(tutores) && tutores.length > 0) {
       const tutoresFiltrados = aplicarFiltrosEnCliente(tutores);
       renderizarTutores(tutoresFiltrados);
       return;
     }
 
-    // Fallback a mock data si la base de datos no tiene registros aún
+    // Fallback si la lista viene vacía
     if (typeof tutoresData !== "undefined") {
       renderizarTutores(tutoresDeMuestraFiltrados());
     } else {
@@ -177,7 +174,7 @@ async function cargarTutores() {
       if (typeof tutoresData !== "undefined") {
         renderizarTutores(tutoresDeMuestraFiltrados());
       } else {
-        mostrarEstado("No fue posible cargar los tutores. Intenta nuevamente.");
+        mostrarEstado("No fue posible cargar los tutores.");
       }
     }
   }
