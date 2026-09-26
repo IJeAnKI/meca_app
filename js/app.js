@@ -3,6 +3,14 @@
 // (definido en js/config.js), protegido por las políticas RLS de la BD.
 const VISTA_CATALOGO_TUTORES = "vista_catalogo_tutores";
 
+// Cada página declara, antes de cargar este script, cuántos niveles de
+// carpeta la separan de la raíz del sitio, con un <script> inline:
+//   páginas en la raíz (index.html):      const RUTA_RAIZ = "";
+//   páginas en html/ (login, registro...): const RUTA_RAIZ = "../";
+// Así los redirects de abajo funcionan sin importar en qué carpeta viva
+// cada página, y sin tener que tocar app.js cada vez que muevan un archivo.
+const rutaRaiz = typeof RUTA_RAIZ !== "undefined" ? RUTA_RAIZ : "";
+
 document.addEventListener("DOMContentLoaded", () => {
   configurarLogin();
   configurarRegistro();
@@ -67,7 +75,7 @@ function configurarCerrarSesion() {
   document.querySelectorAll("#btnCerrarSesion").forEach((boton) => {
     boton.addEventListener("click", async () => {
       await supabaseClient.auth.signOut();
-      window.location.href = "index.html";
+      window.location.href = `${rutaRaiz}index.html`;
     });
   });
 }
@@ -95,7 +103,7 @@ function configurarLogin() {
     }
 
     mostrarMensaje("loginStatus", "Inicio de sesión correcto. Redirigiendo...");
-    setTimeout(() => (window.location.href = "index.html"), 800);
+    setTimeout(() => (window.location.href = `${rutaRaiz}index.html`), 800);
   });
 }
 
@@ -136,7 +144,7 @@ function configurarRegistro() {
     }
 
     mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
-    setTimeout(() => (window.location.href = "index.html"), 1200);
+    setTimeout(() => (window.location.href = `${rutaRaiz}index.html`), 1200);
   });
 }
 
