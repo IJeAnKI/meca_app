@@ -1,12 +1,13 @@
-// js/app.js - Lógica adaptativa completa
-const API_TUTORES_LOCAL = "api/tutores/listar.php";
-const API_AUTH_LOCAL = "api/auth";
-let temporizadorFiltro;
-let solicitudTutores;
+// js/app.js - Lógica de M.E.C.A. usando Supabase Auth + Postgres directamente.
+// Ya no existe backend PHP en producción: todo pasa por supabaseClient
+// (definido en js/config.js), protegido por las políticas RLS de la BD.
+const VISTA_CATALOGO_TUTORES = "vista_catalogo_tutores";
 
 document.addEventListener("DOMContentLoaded", () => {
   configurarLogin();
   configurarRegistro();
+  configurarCerrarSesion();
+  observarSesion();
   if (document.getElementById("contenedorTutores")) cargarTutores();
 });
 
@@ -30,85 +31,132 @@ function mostrarEstado(mensaje) {
   contenedor.appendChild(estado);
 }
 
-// Envío unificado Auth (PHP / Supabase)
-async function enviarPeticionAuth(endpointPhp, endpointSupabase, datos) {
-  if (CONFIG.ES_NUBE) {
-    const url = `${CONFIG.SUPABASE_URL}/rest/v1/${endpointSupabase}`;
-    const respuesta = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": CONFIG.SUPABASE_KEY,
-        "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`,
-        "Prefer": "return=representation"
-      },
-      body: JSON.stringify(datos)
-    });
+// ============================================================
+// SESIÓN (Supabase Auth)
+// ============================================================
 
-    const cuerpo = await respuesta.json();
-    if (!respuesta.ok) throw new Error(cuerpo.message || "Error al procesar en la nube.");
-    return { success: true, message: "Operación exitosa en Supabase." };
-  } else {
-    const respuesta = await fetch(endpointPhp, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify(datos)
+function observarSesion() {
+  // Estado inicial: por si la página carga con una sesión ya guardada
+  // en el navegador de una visita anterior.
+  supabaseClient.auth.getSession().then(({ data }) => actualizarNavegacionSesion(data.session));
+
+  // Reacciona en vivo a login / logout / renovación automática de token.
+  supabaseClient.auth.onAuthStateChange((_evento, session) => actualizarNavegacionSesion(session));
+}
+
+function actualizarNavegacionSesion(session) {
+  const haySesion = Boolean(session && session.user);
+
+  document.querySelectorAll(".auth-logged-out").forEach((el) => {
+    el.style.display = haySesion ? "none" : "";
+  });
+  document.querySelectorAll(".auth-logged-in").forEach((el) => {
+    el.style.display = haySesion ? "" : "none";
+  });
+
+  if (haySesion) {
+    const metadatos = session.user.user_metadata || {};
+    const nombreMostrado = metadatos.nombre ? metadatos.nombre : session.user.email;
+    document.querySelectorAll(".nav-user-name").forEach((el) => {
+      el.textContent = `Hola, ${nombreMostrado}`;
     });
-    const cuerpo = await respuesta.json();
-    if (!respuesta.ok || !cuerpo.success) throw new Error(cuerpo.message || "Error en el servidor local.");
-    return cuerpo;
   }
 }
+
+function configurarCerrarSesion() {
+  document.querySelectorAll("#btnCerrarSesion").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      await supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
+  });
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
 
 function configurarLogin() {
   const formulario = document.getElementById("standaloneLoginForm");
   if (!formulario) return;
+
   formulario.addEventListener("submit", async (event) => {
     event.preventDefault();
     mostrarMensaje("loginStatus", "Iniciando sesión...");
-    try {
-      const email = document.getElementById("loginEmail").value;
-      const password = document.getElementById("loginPassword").value;
 
-      if (CONFIG.ES_NUBE) {
-        alert(`Sesión iniciada con éxito (${email}) desde Supabase.`);
-        window.location.href = "index.html";
-      } else {
-        const resultado = await enviarPeticionAuth(`${API_AUTH_LOCAL}/iniciar_sesion.php`, "", { email, password });
-        mostrarMensaje("loginStatus", `${resultado.message} Redirigiendo...`);
-        window.location.href = "index.html";
-      }
-    } catch (error) {
-      mostrarMensaje("loginStatus", error.message, true);
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      mostrarMensaje("loginStatus", traducirErrorAuth(error), true);
+      return;
     }
+
+    mostrarMensaje("loginStatus", "Inicio de sesión correcto. Redirigiendo...");
+    setTimeout(() => (window.location.href = "index.html"), 800);
   });
 }
+
+// ============================================================
+// REGISTRO
+// ============================================================
 
 function configurarRegistro() {
   const formulario = document.getElementById("standaloneRegisterForm");
   if (!formulario) return;
+
   formulario.addEventListener("submit", async (event) => {
     event.preventDefault();
     mostrarMensaje("registerStatus", "Creando cuenta...");
-    try {
-      const payload = {
-        nombre: document.getElementById("regNombre").value,
-        apellido: document.getElementById("regApellido").value,
-        email: document.getElementById("regEmail").value,
-        institucion: document.getElementById("regInstitucion").value,
-        rol: document.getElementById("regRol").value,
-        password_hash: document.getElementById("regPassword").value
-      };
 
-      await enviarPeticionAuth(`${API_AUTH_LOCAL}/registrar.php`, "usuario", payload);
-      mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
-      setTimeout(() => window.location.href = "index.html", 1500);
-    } catch (error) {
-      mostrarMensaje("registerStatus", error.message, true);
+    const nombre = document.getElementById("regNombre").value.trim();
+    const apellido = document.getElementById("regApellido").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
+    const institucion = document.getElementById("regInstitucion").value.trim();
+    const rol = document.getElementById("regRol").value;
+    const password = document.getElementById("regPassword").value;
+
+    // Supabase Auth crea el usuario en auth.users, cifra la contraseña
+    // (nunca la vemos ni la guardamos nosotros) y el trigger
+    // handle_new_user() crea automáticamente la fila en public.usuario
+    // con estos mismos metadatos.
+    const { error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { nombre, apellido, institucion, rol },
+      },
+    });
+
+    if (error) {
+      mostrarMensaje("registerStatus", traducirErrorAuth(error), true);
+      return;
     }
+
+    mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
+    setTimeout(() => (window.location.href = "index.html"), 1200);
   });
 }
+
+function traducirErrorAuth(error) {
+  const mensaje = (error && error.message) || "";
+  if (mensaje.includes("already registered") || mensaje.includes("already exists")) {
+    return "Ya existe una cuenta registrada con ese correo.";
+  }
+  if (mensaje.includes("Invalid login credentials")) {
+    return "Correo o contraseña incorrectos.";
+  }
+  if (mensaje.toLowerCase().includes("password")) {
+    return "La contraseña no cumple los requisitos mínimos (8 caracteres).";
+  }
+  return mensaje || "Ocurrió un error inesperado. Intenta de nuevo.";
+}
+
+// ============================================================
+// CATÁLOGO DE TUTORES
+// ============================================================
 
 async function cargarTutores() {
   const inputMateria = document.getElementById("searchMateria");
@@ -124,40 +172,25 @@ async function cargarTutores() {
     selectPrecio.dataset.eventBound = "true";
   }
 
-  if (solicitudTutores) solicitudTutores.abort();
-  solicitudTutores = new AbortController();
   mostrarEstado("Cargando tutores...");
 
   try {
-    let tutores = [];
+    let consulta = supabaseClient.from(VISTA_CATALOGO_TUTORES).select("*").order("nombre");
 
-    if (CONFIG.ES_NUBE) {
-      const url = `${CONFIG.SUPABASE_URL}/rest/v1/vista_catalogo_tutores?select=*`;
-      const respuesta = await fetch(url, {
-        headers: {
-          "apikey": CONFIG.SUPABASE_KEY,
-          "Authorization": `Bearer ${CONFIG.SUPABASE_KEY}`
-        },
-        signal: solicitudTutores.signal
-      });
-
-      if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
-      tutores = await respuesta.json();
-    } else {
-      const parametros = new URLSearchParams();
-      if (inputMateria.value.trim()) parametros.set("materia", inputMateria.value.trim());
-      if (selectPrecio.value !== "todos") parametros.set("precio_max", selectPrecio.value);
-
-      const respuesta = await fetch(`${API_TUTORES_LOCAL}?${parametros}`, {
-        signal: solicitudTutores.signal
-      });
-      const cuerpo = await respuesta.json();
-      tutores = cuerpo.data || [];
+    // El filtro de precio sí se puede aplicar en la consulta (columna
+    // numérica simple). El filtro de materia se aplica en el cliente
+    // porque "materias" es un arreglo JSON agregado, no una columna
+    // de texto simple sobre la que PostgREST pueda filtrar con ilike.
+    const precioMax = selectPrecio.value;
+    if (precioMax !== "todos") {
+      consulta = consulta.lte("precio_hora", Number(precioMax));
     }
 
-    if (Array.isArray(tutores) && tutores.length > 0) {
-      const tutoresFiltrados = aplicarFiltrosEnCliente(tutores);
-      renderizarTutores(tutoresFiltrados);
+    const { data, error } = await consulta;
+    if (error) throw error;
+
+    if (Array.isArray(data) && data.length > 0) {
+      renderizarTutores(aplicarFiltrosEnCliente(data));
       return;
     }
 
@@ -166,33 +199,26 @@ async function cargarTutores() {
     } else {
       mostrarEstado("No se encontraron tutores con esos criterios.");
     }
-
   } catch (error) {
-    if (error.name !== "AbortError") {
-      console.error("Error al cargar tutores:", error);
-      if (typeof tutoresData !== "undefined") {
-        renderizarTutores(tutoresDeMuestraFiltrados());
-      } else {
-        mostrarEstado("No fue posible cargar los tutores.");
-      }
+    console.error("Error al cargar tutores:", error);
+    if (typeof tutoresData !== "undefined") {
+      renderizarTutores(tutoresDeMuestraFiltrados());
+    } else {
+      mostrarEstado("No fue posible cargar los tutores. Intenta de nuevo más tarde.");
     }
   }
 }
 
 function aplicarFiltrosEnCliente(lista) {
   const terminoMateria = document.getElementById("searchMateria").value.trim().toLowerCase();
-  const precioMax = document.getElementById("filterPrecio").value;
 
   return lista.filter((tutor) => {
-    const nombresMaterias = (tutor.materias || []).map(m => 
-      typeof m === "object" ? (m.nombre_materia || "") : m
-    ).join(" ").toLowerCase();
+    const nombresMaterias = (tutor.materias || [])
+      .map((m) => (typeof m === "object" ? m.nombre_materia || "" : m))
+      .join(" ")
+      .toLowerCase();
 
-    const coincideMateria = !terminoMateria || nombresMaterias.includes(terminoMateria);
-    const precio = Number(tutor.precio_hora || tutor.precioHora || 0);
-    const coincidePrecio = precioMax === "todos" || precio <= Number(precioMax);
-
-    return coincideMateria && coincidePrecio;
+    return !terminoMateria || nombresMaterias.includes(terminoMateria);
   });
 }
 
@@ -228,7 +254,7 @@ function renderizarTutores(lista) {
   lista.forEach((tutor) => {
     const card = document.createElement("div");
     card.classList.add("card");
-    
+
     const titulo = document.createElement("h3");
     titulo.style.cssText = "color: var(--azul-meca); margin-bottom: 0.35rem;";
     titulo.textContent = `${tutor.nombre} ${tutor.apellido}`;
@@ -241,10 +267,11 @@ function renderizarTutores(lista) {
       card.appendChild(institucion);
     }
 
-    const materiasTexto = (tutor.materias || [])
-      .map(m => typeof m === "object" ? m.nombre_materia : m)
-      .filter(Boolean)
-      .join(", ") || "Sin materias registradas";
+    const materiasTexto =
+      (tutor.materias || [])
+        .map((m) => (typeof m === "object" ? m.nombre_materia : m))
+        .filter(Boolean)
+        .join(", ") || "Sin materias registradas";
 
     const precio = Number(tutor.precio_hora || tutor.precioHora || 0);
     const calificacion = Number(tutor.promedio_calificacion || tutor.calificacion || 0).toFixed(1);
@@ -276,11 +303,27 @@ function renderizarTutores(lista) {
 }
 
 function filtrarTutores() {
-  clearTimeout(temporizadorFiltro);
-  temporizadorFiltro = setTimeout(cargarTutores, 300);
+  cargarTutores();
 }
 
-function prepararReserva(tutor) {
+async function prepararReserva(tutor) {
+  const { data } = await supabaseClient.auth.getSession();
+  const session = data.session;
+
+  if (!session) {
+    alert("Debes iniciar sesión para reservar una tutoría.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const rol = (session.user.user_metadata || {}).rol;
+  if (rol !== "ASESORADO") {
+    alert("Solo las cuentas de tipo 'Estudiante en busca de ayuda' pueden reservar tutorías.");
+    return;
+  }
+
   const nombreTutor = tutor.nombre || "el tutor";
-  alert(`Para reservar con ${nombreTutor}, inicia sesión como estudiante en busca de ayuda.`);
+  alert(
+    `¡Ya iniciaste sesión correctamente! El formulario para elegir fecha y hora con ${nombreTutor} se habilita en el siguiente avance del proyecto.`
+  );
 }
