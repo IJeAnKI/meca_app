@@ -1,12 +1,13 @@
-// Lógica interactiva de M.E.C.A.
-const API_TUTORES = "api/tutores/listar.php";
-const API_AUTH = "api/auth";
-let temporizadorFiltro;
-let solicitudTutores;
+// js/app.js - Lógica de M.E.C.A. usando Supabase Auth + Postgres directamente.
+// Ya no existe backend PHP en producción: todo pasa por supabaseClient
+// (definido en js/config.js), protegido por las políticas RLS de la BD.
+const VISTA_CATALOGO_TUTORES = "vista_catalogo_tutores";
 
 document.addEventListener("DOMContentLoaded", () => {
   configurarLogin();
   configurarRegistro();
+  configurarCerrarSesion();
+  observarSesion();
   if (document.getElementById("contenedorTutores")) cargarTutores();
 });
 
@@ -15,65 +16,6 @@ function mostrarMensaje(id, mensaje, esError = false) {
   if (!elemento) return;
   elemento.textContent = mensaje;
   elemento.style.color = esError ? "#b91c1c" : "var(--verde-exito)";
-}
-
-async function enviarJson(url, datos) {
-  const respuesta = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    credentials: "same-origin",
-    body: JSON.stringify(datos),
-  });
-  let cuerpo;
-  try {
-    cuerpo = await respuesta.json();
-  } catch {
-    throw new Error("La respuesta del servidor no es válida.");
-  }
-  if (!respuesta.ok || !cuerpo.success) throw new Error(cuerpo.message || "No fue posible realizar la operación.");
-  return cuerpo;
-}
-
-function configurarLogin() {
-  const formulario = document.getElementById("standaloneLoginForm");
-  if (!formulario) return;
-  formulario.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    mostrarMensaje("loginStatus", "Iniciando sesión...");
-    try {
-      const resultado = await enviarJson(`${API_AUTH}/iniciar_sesion.php`, {
-        email: document.getElementById("loginEmail").value,
-        password: document.getElementById("loginPassword").value,
-      });
-      mostrarMensaje("loginStatus", `${resultado.message} Redirigiendo...`);
-      window.location.href = "index.html";
-    } catch (error) {
-      mostrarMensaje("loginStatus", error.message, true);
-    }
-  });
-}
-
-function configurarRegistro() {
-  const formulario = document.getElementById("standaloneRegisterForm");
-  if (!formulario) return;
-  formulario.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    mostrarMensaje("registerStatus", "Creando cuenta...");
-    try {
-      const resultado = await enviarJson(`${API_AUTH}/registrar.php`, {
-        nombre: document.getElementById("regNombre").value,
-        apellido: document.getElementById("regApellido").value,
-        email: document.getElementById("regEmail").value,
-        institucion: document.getElementById("regInstitucion").value,
-        rol: document.getElementById("regRol").value,
-        password: document.getElementById("regPassword").value,
-      });
-      mostrarMensaje("registerStatus", `${resultado.message} Redirigiendo...`);
-      window.location.href = "index.html";
-    } catch (error) {
-      mostrarMensaje("registerStatus", error.message, true);
-    }
-  });
 }
 
 function mostrarEstado(mensaje) {
@@ -89,80 +31,195 @@ function mostrarEstado(mensaje) {
   contenedor.appendChild(estado);
 }
 
-function renderizarTutores(lista) {
-  const contenedor = document.getElementById("contenedorTutores");
-  if (!contenedor) return;
-  contenedor.innerHTML = "";
-  if (lista.length === 0) return mostrarEstado("No se encontraron tutores con esos criterios.");
+// ============================================================
+// SESIÓN (Supabase Auth)
+// ============================================================
 
-  lista.forEach((tutor) => {
-    const card = document.createElement("div");
-    card.classList.add("card");
-    const titulo = document.createElement("h3");
-    titulo.style.cssText = "color: var(--azul-meca); margin-bottom: 0.35rem;";
-    titulo.textContent = `${tutor.nombre} ${tutor.apellido}`;
-    card.appendChild(titulo);
-    if (tutor.institucion) {
-      const institucion = document.createElement("p");
-      institucion.style.cssText = "color: var(--texto-secundario); margin-bottom: 1rem; font-size: 0.9rem;";
-      institucion.textContent = tutor.institucion;
-      card.appendChild(institucion);
-    }
-    const datos = [
-      ["Materia(s)", (tutor.materias || []).join(", ") || "Sin materias registradas"],
-      ["Tarifa", `$${Number(tutor.precio_hora).toLocaleString("es-CO")} COP / hora`],
-      ["Calificación", `⭐ ${Number(tutor.promedio_calificacion).toFixed(1)} / 5.0`],
-    ];
-    datos.forEach(([etiqueta, valor], indice) => {
-      const parrafo = document.createElement("p");
-      parrafo.style.marginBottom = indice === datos.length - 1 ? "1rem" : "0.4rem";
-      const fuerte = document.createElement("strong");
-      fuerte.textContent = `${etiqueta}: `;
-      parrafo.append(fuerte, document.createTextNode(valor));
-      card.appendChild(parrafo);
+function observarSesion() {
+  // Estado inicial: por si la página carga con una sesión ya guardada
+  // en el navegador de una visita anterior.
+  supabaseClient.auth.getSession().then(({ data }) => actualizarNavegacionSesion(data.session));
+
+  // Reacciona en vivo a login / logout / renovación automática de token.
+  supabaseClient.auth.onAuthStateChange((_evento, session) => actualizarNavegacionSesion(session));
+}
+
+function actualizarNavegacionSesion(session) {
+  const haySesion = Boolean(session && session.user);
+
+  document.querySelectorAll(".auth-logged-out").forEach((el) => {
+    el.style.display = haySesion ? "none" : "";
+  });
+  document.querySelectorAll(".auth-logged-in").forEach((el) => {
+    el.style.display = haySesion ? "" : "none";
+  });
+
+  if (haySesion) {
+    const metadatos = session.user.user_metadata || {};
+    const nombreMostrado = metadatos.nombre ? metadatos.nombre : session.user.email;
+    document.querySelectorAll(".nav-user-name").forEach((el) => {
+      el.textContent = `Hola, ${nombreMostrado}`;
     });
-    const boton = document.createElement("button");
-    boton.className = "btn-primary";
-    boton.style.width = "100%";
-    boton.textContent = "Reservar tutoría";
-    boton.addEventListener("click", () => prepararReserva(tutor));
-    card.appendChild(boton);
-    contenedor.appendChild(card);
+  }
+}
+
+function configurarCerrarSesion() {
+  document.querySelectorAll("#btnCerrarSesion").forEach((boton) => {
+    boton.addEventListener("click", async () => {
+      await supabaseClient.auth.signOut();
+      window.location.href = "index.html";
+    });
   });
 }
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+function configurarLogin() {
+  const formulario = document.getElementById("standaloneLoginForm");
+  if (!formulario) return;
+
+  formulario.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    mostrarMensaje("loginStatus", "Iniciando sesión...");
+
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      mostrarMensaje("loginStatus", traducirErrorAuth(error), true);
+      return;
+    }
+
+    mostrarMensaje("loginStatus", "Inicio de sesión correcto. Redirigiendo...");
+    setTimeout(() => (window.location.href = "index.html"), 800);
+  });
+}
+
+// ============================================================
+// REGISTRO
+// ============================================================
+
+function configurarRegistro() {
+  const formulario = document.getElementById("standaloneRegisterForm");
+  if (!formulario) return;
+
+  formulario.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    mostrarMensaje("registerStatus", "Creando cuenta...");
+
+    const nombre = document.getElementById("regNombre").value.trim();
+    const apellido = document.getElementById("regApellido").value.trim();
+    const email = document.getElementById("regEmail").value.trim();
+    const institucion = document.getElementById("regInstitucion").value.trim();
+    const rol = document.getElementById("regRol").value;
+    const password = document.getElementById("regPassword").value;
+
+    // Supabase Auth crea el usuario en auth.users, cifra la contraseña
+    // (nunca la vemos ni la guardamos nosotros) y el trigger
+    // handle_new_user() crea automáticamente la fila en public.usuario
+    // con estos mismos metadatos.
+    const { error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { nombre, apellido, institucion, rol },
+      },
+    });
+
+    if (error) {
+      mostrarMensaje("registerStatus", traducirErrorAuth(error), true);
+      return;
+    }
+
+    mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
+    setTimeout(() => (window.location.href = "index.html"), 1200);
+  });
+}
+
+function traducirErrorAuth(error) {
+  const mensaje = (error && error.message) || "";
+  if (mensaje.includes("already registered") || mensaje.includes("already exists")) {
+    return "Ya existe una cuenta registrada con ese correo.";
+  }
+  if (mensaje.includes("Invalid login credentials")) {
+    return "Correo o contraseña incorrectos.";
+  }
+  if (mensaje.toLowerCase().includes("password")) {
+    return "La contraseña no cumple los requisitos mínimos (8 caracteres).";
+  }
+  return mensaje || "Ocurrió un error inesperado. Intenta de nuevo.";
+}
+
+// ============================================================
+// CATÁLOGO DE TUTORES
+// ============================================================
 
 async function cargarTutores() {
   const inputMateria = document.getElementById("searchMateria");
   const selectPrecio = document.getElementById("filterPrecio");
   if (!inputMateria || !selectPrecio) return;
-  const parametros = new URLSearchParams();
-  if (inputMateria.value.trim()) parametros.set("materia", inputMateria.value.trim());
-  if (selectPrecio.value !== "todos") parametros.set("precio_max", selectPrecio.value);
-  if (solicitudTutores) solicitudTutores.abort();
-  solicitudTutores = new AbortController();
+
+  if (!inputMateria.dataset.eventBound) {
+    inputMateria.addEventListener("input", filtrarTutores);
+    inputMateria.dataset.eventBound = "true";
+  }
+  if (!selectPrecio.dataset.eventBound) {
+    selectPrecio.addEventListener("change", filtrarTutores);
+    selectPrecio.dataset.eventBound = "true";
+  }
+
   mostrarEstado("Cargando tutores...");
+
   try {
-    const respuesta = await fetch(`${API_TUTORES}${parametros.size ? `?${parametros}` : ""}`, {
-      headers: { Accept: "application/json" }, signal: solicitudTutores.signal,
-    });
-    if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
-    const cuerpo = await respuesta.json();
-    if (cuerpo.success && Array.isArray(cuerpo.data) && cuerpo.data.length === 0 && typeof tutoresData !== "undefined") {
-      renderizarTutores(tutoresDeMuestraFiltrados());
+    let consulta = supabaseClient.from(VISTA_CATALOGO_TUTORES).select("*").order("nombre");
+
+    // El filtro de precio sí se puede aplicar en la consulta (columna
+    // numérica simple). El filtro de materia se aplica en el cliente
+    // porque "materias" es un arreglo JSON agregado, no una columna
+    // de texto simple sobre la que PostgREST pueda filtrar con ilike.
+    const precioMax = selectPrecio.value;
+    if (precioMax !== "todos") {
+      consulta = consulta.lte("precio_hora", Number(precioMax));
+    }
+
+    const { data, error } = await consulta;
+    if (error) throw error;
+
+    if (Array.isArray(data) && data.length > 0) {
+      renderizarTutores(aplicarFiltrosEnCliente(data));
       return;
     }
-    if (!cuerpo.success || !Array.isArray(cuerpo.data)) throw new Error("Respuesta inválida de la API");
-    renderizarTutores(cuerpo.data);
+
+    if (typeof tutoresData !== "undefined") {
+      renderizarTutores(tutoresDeMuestraFiltrados());
+    } else {
+      mostrarEstado("No se encontraron tutores con esos criterios.");
+    }
   } catch (error) {
-    if (error.name !== "AbortError") {
-      console.error("Error al cargar tutores:", error);
-      if (typeof tutoresData !== "undefined") {
-        renderizarTutores(tutoresDeMuestraFiltrados());
-        return;
-      }
-      mostrarEstado("No fue posible cargar los tutores. Intenta nuevamente.");
+    console.error("Error al cargar tutores:", error);
+    if (typeof tutoresData !== "undefined") {
+      renderizarTutores(tutoresDeMuestraFiltrados());
+    } else {
+      mostrarEstado("No fue posible cargar los tutores. Intenta de nuevo más tarde.");
     }
   }
+}
+
+function aplicarFiltrosEnCliente(lista) {
+  const terminoMateria = document.getElementById("searchMateria").value.trim().toLowerCase();
+
+  return lista.filter((tutor) => {
+    const nombresMaterias = (tutor.materias || [])
+      .map((m) => (typeof m === "object" ? m.nombre_materia || "" : m))
+      .join(" ")
+      .toLowerCase();
+
+    return !terminoMateria || nombresMaterias.includes(terminoMateria);
+  });
 }
 
 function tutoresDeMuestraFiltrados() {
@@ -188,11 +245,85 @@ function tutoresDeMuestraFiltrados() {
     });
 }
 
-function filtrarTutores() {
-  clearTimeout(temporizadorFiltro);
-  temporizadorFiltro = setTimeout(cargarTutores, 300);
+function renderizarTutores(lista) {
+  const contenedor = document.getElementById("contenedorTutores");
+  if (!contenedor) return;
+  contenedor.innerHTML = "";
+  if (!lista || lista.length === 0) return mostrarEstado("No se encontraron tutores con esos criterios.");
+
+  lista.forEach((tutor) => {
+    const card = document.createElement("div");
+    card.classList.add("card");
+
+    const titulo = document.createElement("h3");
+    titulo.style.cssText = "color: var(--azul-meca); margin-bottom: 0.35rem;";
+    titulo.textContent = `${tutor.nombre} ${tutor.apellido}`;
+    card.appendChild(titulo);
+
+    if (tutor.institucion) {
+      const institucion = document.createElement("p");
+      institucion.style.cssText = "color: var(--texto-secundario); margin-bottom: 1rem; font-size: 0.9rem;";
+      institucion.textContent = tutor.institucion;
+      card.appendChild(institucion);
+    }
+
+    const materiasTexto =
+      (tutor.materias || [])
+        .map((m) => (typeof m === "object" ? m.nombre_materia : m))
+        .filter(Boolean)
+        .join(", ") || "Sin materias registradas";
+
+    const precio = Number(tutor.precio_hora || tutor.precioHora || 0);
+    const calificacion = Number(tutor.promedio_calificacion || tutor.calificacion || 0).toFixed(1);
+
+    const datos = [
+      ["Materia(s)", materiasTexto],
+      ["Tarifa", `$${precio.toLocaleString("es-CO")} COP / hora`],
+      ["Calificación", `⭐ ${calificacion} / 5.0`],
+    ];
+
+    datos.forEach(([etiqueta, valor], indice) => {
+      const parrafo = document.createElement("p");
+      parrafo.style.marginBottom = indice === datos.length - 1 ? "1rem" : "0.4rem";
+      const fuerte = document.createElement("strong");
+      fuerte.textContent = `${etiqueta}: `;
+      parrafo.append(fuerte, document.createTextNode(valor));
+      card.appendChild(parrafo);
+    });
+
+    const boton = document.createElement("button");
+    boton.className = "btn-primary";
+    boton.style.width = "100%";
+    boton.textContent = "Reservar tutoría";
+    boton.addEventListener("click", () => prepararReserva(tutor));
+    card.appendChild(boton);
+
+    contenedor.appendChild(card);
+  });
 }
 
-function prepararReserva(tutor) {
-  alert(`Para reservar con ${tutor.nombre} ${tutor.apellido}, inicia sesión como estudiante en busca de ayuda.`);
+function filtrarTutores() {
+  cargarTutores();
+}
+
+async function prepararReserva(tutor) {
+  const { data } = await supabaseClient.auth.getSession();
+  const session = data.session;
+
+  if (!session) {
+    alert("Debes iniciar sesión para reservar una tutoría.");
+    window.location.href = "login.html";
+    return;
+  }
+
+  const rol = (session.user.user_metadata || {}).rol;
+  if (rol !== "ASESORADO") {
+    alert("Solo las cuentas de tipo 'Estudiante en busca de ayuda' pueden reservar tutorías.");
+    return;
+  }
+
+  const nombreTutor = tutor.nombre || "el tutor";
+  alert(
+    `¡Ya iniciaste sesión correctamente! El formulario para elegir fecha y hora con ${nombreTutor} se habilita en el siguiente avance del proyecto.`
+  );
 }
