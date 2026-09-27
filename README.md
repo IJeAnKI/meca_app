@@ -1,3 +1,8 @@
+# M.E.C.A.
+
+Una plataforma digital que conecta a estudiantes que dominan ciertas materias
+con otros que requieren apoyo.
+
 ## Arquitectura actual
 
 M.E.C.A. es un sitio 100% estático (HTML, CSS, JS) desplegado en GitHub Pages,
@@ -14,3 +19,10 @@ porque documenta patrones de seguridad (sentencias preparadas, cálculo
 de montos en servidor) que se reimplementaron como funciones RPC de
 Postgres en la arquitectura actual (ver `database/migraciones/`).
 No se debe modificar ni usar como referencia de cómo funciona el sitio hoy.
+
+## `database/migraciones/` (historial de la base de datos)
+
+Contiene, en orden, los scripts SQL que construyeron el esquema actual
+en Supabase (tablas, RLS, funciones RPC) y los parches de seguridad
+aplicados tras revisar el Security Advisor. Ver el README de esa carpeta
+para más detalle.
