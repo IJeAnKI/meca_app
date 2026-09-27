@@ -12,6 +12,7 @@ const VISTA_CATALOGO_TUTORES = "vista_catalogo_tutores";
 const rutaRaiz = typeof RUTA_RAIZ !== "undefined" ? RUTA_RAIZ : "";
 
 document.addEventListener("DOMContentLoaded", () => {
+  protegerLanding();
   configurarLogin();
   configurarRegistro();
   configurarCerrarSesion();
@@ -38,6 +39,26 @@ function mostrarEstado(mensaje) {
   texto.textContent = mensaje;
   estado.appendChild(texto);
   contenedor.appendChild(estado);
+}
+
+// ============================================================
+// PROTECCIÓN DE LA LANDING (index.html)
+// ============================================================
+// La landing (index.html) solo debe ser visible para usuarios con sesión
+// activa. Si alguien entra sin sesión, lo mandamos al login. En el resto de
+// páginas (login, register, reservas, perfil) esta función no hace nada.
+//
+// La detección se hace con el atributo data-page="landing" que declaramos en
+// el <body> de index.html, para no depender de selectores frágiles.
+function protegerLanding() {
+  const esLanding = document.body && document.body.dataset.page === "landing";
+  if (!esLanding) return;
+
+  supabaseClient.auth.getSession().then(({ data }) => {
+    if (!data.session) {
+      window.location.replace(`${rutaRaiz}html/login.html`);
+    }
+  });
 }
 
 // ============================================================
@@ -76,7 +97,9 @@ function configurarCerrarSesion() {
   document.querySelectorAll("#btnCerrarSesion").forEach((boton) => {
     boton.addEventListener("click", async () => {
       await supabaseClient.auth.signOut();
-      window.location.href = `${rutaRaiz}index.html`;
+      // Enviamos directo al login para evitar el "flash" de la landing
+      // (que ahora, sin sesión, rebotaría igual al login vía protegerLanding).
+      window.location.href = `${rutaRaiz}html/login.html`;
     });
   });
 }
@@ -104,6 +127,8 @@ function configurarLogin() {
     }
 
     mostrarMensaje("loginStatus", "Inicio de sesión correcto. Redirigiendo...");
+    // Ahora sí redirigimos a la landing: con sesión activa, protegerLanding()
+    // ya no la rebota al login.
     setTimeout(() => (window.location.href = `${rutaRaiz}index.html`), 800);
   });
 }
@@ -145,6 +170,8 @@ function configurarRegistro() {
     }
 
     mostrarMensaje("registerStatus", "¡Registro exitoso! Redirigiendo...");
+    // Igual que en el login: con la sesión creada por signUp, la landing
+    // ya es accesible y protegerLanding() no la rebota.
     setTimeout(() => (window.location.href = `${rutaRaiz}index.html`), 1200);
   });
 }
