@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M.E.C.A. - Mi Perfil</title>
+    <link rel="stylesheet" href="../css/styles.css" />
+  </head>
+  <body style="display: flex; flex-direction: column; min-height: 100vh">
+    <header>
+      <nav class="navbar">
+        <a href="../index.html" class="logo">M.E.C.A.</a>
+        <ul class="nav-links">
+          <li><a href="../index.html">Inicio</a></li>
+          <li><a href="reservas.html">Catálogo de Tutores</a></li>
+          <li class="auth-logged-out"><a href="login.html" class="btn-secondary">Iniciar Sesión</a></li>
+          <li class="auth-logged-out"><a href="register.html" class="btn-primary">Registrarse</a></li>
+          <li class="auth-logged-in" style="display: none;">
+            <span style="display: inline-flex; align-items: center; gap: 0.75rem;">
+              <span class="nav-user-name" style="color: var(--texto-secundario); font-weight: 600;"></span>
+              <button type="button" id="btnCerrarSesion" class="btn-secondary">Cerrar Sesión</button>
+            </span>
+          </li>
+        </ul>
+      </nav>
+    </header>
+
+    <main
+      style="
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 2rem;
+      "
+    >
+      <div class="card" style="width: 100%; max-width: 560px; box-shadow: var(--sombra); margin-top: 1.5rem;">
+        <h2 style="color: var(--azul-meca); text-align: center; margin-bottom: 0.5rem;">
+          Mi Perfil
+        </h2>
+        <p style="text-align: center; color: var(--texto-secundario); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Estos son tus datos en M.E.C.A. Los puedes actualizar cuando quieras.
+        </p>
+
+        <!-- Datos que no se editan aquí: el correo lo administra Supabase
+             Auth, y el rol/XP son informativos por ahora. -->
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            background: var(--bg-principal);
+            border: 1px solid var(--borde-suave);
+            border-radius: 6px;
+            padding: 0.9rem 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+          "
+        >
+          <span><strong>Correo:</strong> <span id="perfilEmail">—</span></span>
+          <span><strong>Rol:</strong> <span id="perfilRol">—</span></span>
+          <span><strong>Puntos:</strong> <span id="perfilXp">—</span></span>
+        </div>
+
+        <form id="formPerfil">
+          <div class="form-group">
+            <label for="perfilNombre">Nombre</label>
+            <input type="text" id="perfilNombre" required maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="perfilApellido">Apellido</label>
+            <input type="text" id="perfilApellido" required maxlength="100" />
+          </div>
+
+          <div class="form-group">
+            <label for="perfilTelefono">Teléfono (opcional)</label>
+            <input type="tel" id="perfilTelefono" maxlength="20" placeholder="Ej. 3001234567" />
+          </div>
+
+          <div class="form-group">
+            <label for="perfilInstitucion">Institución Educativa</label>
+            <input type="text" id="perfilInstitucion" maxlength="200" placeholder="Universidad o Colegio" />
+          </div>
+
+          <button type="submit" class="btn-primary" style="width: 100%; margin-top: 1rem">
+            Guardar Cambios
+          </button>
+          <p id="perfilStatus" role="status" style="margin-top: 1rem; text-align: center;"></p>
+        </form>
+      </div>
+    </main>
+
+    <footer>
+      <div class="footer-bottom" style="border: none; padding-top: 0">
+        <p>&copy; 2026 M.E.C.A. - Todos los derechos reservados.</p>
+      </div>
+    </footer>
+
+    <script>const RUTA_RAIZ = "../";</script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/data.js"></script>
+    <script src="../js/app.js"></script>
+  </body>
+</html>

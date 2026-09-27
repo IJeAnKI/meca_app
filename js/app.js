@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   configurarLogin();
   configurarRegistro();
   configurarCerrarSesion();
+  configurarPerfil();
   observarSesion();
   if (document.getElementById("contenedorTutores")) cargarTutores();
 });
@@ -160,6 +161,99 @@ function traducirErrorAuth(error) {
     return "La contraseña no cumple los requisitos mínimos (8 caracteres).";
   }
   return mensaje || "Ocurrió un error inesperado. Intenta de nuevo.";
+}
+
+// ============================================================
+// PERFIL (M01-ACC: datos personales básicos)
+// ============================================================
+
+function configurarPerfil() {
+  const formulario = document.getElementById("formPerfil");
+  if (!formulario) return;
+
+  cargarMiPerfil();
+
+  formulario.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    mostrarMensaje("perfilStatus", "Guardando cambios...");
+
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const session = sessionData.session;
+    if (!session) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    const nombre = document.getElementById("perfilNombre").value.trim();
+    const apellido = document.getElementById("perfilApellido").value.trim();
+    const telefono = document.getElementById("perfilTelefono").value.trim();
+    const institucion = document.getElementById("perfilInstitucion").value.trim();
+
+    if (nombre === "" || apellido === "") {
+      mostrarMensaje("perfilStatus", "Nombre y apellido no pueden quedar vacíos.", true);
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from("usuario")
+      .update({
+        nombre,
+        apellido,
+        telefono: telefono === "" ? null : telefono,
+        institucion: institucion === "" ? null : institucion,
+      })
+      .eq("id_usuario", session.user.id);
+
+    if (error) {
+      mostrarMensaje("perfilStatus", "No se pudo guardar: " + error.message, true);
+      return;
+    }
+
+    // Los metadatos de auth (usados para el saludo del navbar) también se
+    // actualizan, para que el nombre nuevo se refleje sin recargar dos veces.
+    await supabaseClient.auth.updateUser({ data: { nombre, apellido, institucion } });
+
+    mostrarMensaje("perfilStatus", "¡Datos actualizados correctamente!");
+  });
+}
+
+async function cargarMiPerfil() {
+  const { data: sessionData } = await supabaseClient.auth.getSession();
+  const session = sessionData.session;
+
+  if (!session) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  const campoEmail = document.getElementById("perfilEmail");
+  if (campoEmail) campoEmail.textContent = session.user.email;
+
+  // obtener_mi_perfil() es una función RPC (SECURITY DEFINER) porque, por
+  // seguridad, el catálogo público solo tiene permiso de leer columnas no
+  // sensibles de "usuario" (nombre, apellido, institución). Esta función
+  // sí devuelve la fila completa, pero solo la del propio usuario
+  // autenticado (auth.uid()), nunca la de otra persona.
+  const { data: perfil, error } = await supabaseClient.rpc("obtener_mi_perfil");
+
+  if (error || !perfil) {
+    mostrarMensaje("perfilStatus", "No se pudo cargar tu perfil. Intenta recargar la página.", true);
+    return;
+  }
+
+  document.getElementById("perfilNombre").value = perfil.nombre || "";
+  document.getElementById("perfilApellido").value = perfil.apellido || "";
+  document.getElementById("perfilTelefono").value = perfil.telefono || "";
+  document.getElementById("perfilInstitucion").value = perfil.institucion || "";
+
+  const campoRol = document.getElementById("perfilRol");
+  if (campoRol) {
+    const etiquetasRol = { ASESORADO: "Estudiante en busca de ayuda", TUTOR: "Tutor / Mentor", ADMIN: "Administrador" };
+    campoRol.textContent = etiquetasRol[perfil.rol] || perfil.rol;
+  }
+
+  const campoXp = document.getElementById("perfilXp");
+  if (campoXp) campoXp.textContent = `${perfil.puntos_xp || 0} XP`;
 }
 
 // ============================================================
