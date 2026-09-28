@@ -52,11 +52,17 @@ function mostrarEstado(mensaje) {
 // el <body> de index.html, para no depender de selectores frágiles.
 function protegerLanding() {
   const esLanding = document.body && document.body.dataset.page === "landing";
+  console.log("[protegerLanding] esLanding:", esLanding);
   if (!esLanding) return;
 
-  supabaseClient.auth.getSession().then(({ data }) => {
+  supabaseClient.auth.getSession().then(({ data, error }) => {
+    console.log("[protegerLanding] session:", data.session);
+    console.log("[protegerLanding] error:", error);
     if (!data.session) {
+      console.log("[protegerLanding] Sin sesión -> redirigiendo a login");
       window.location.replace(`${rutaRaiz}html/login.html`);
+    } else {
+      console.log("[protegerLanding] Sesión OK, dejando ver la landing");
     }
   });
 }
